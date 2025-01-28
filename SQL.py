@@ -12,9 +12,8 @@ def create_db(conn):
                     id SERIAL PRIMARY KEY,
                     first_name VARCHAR(100),
                     last_name VARCHAR(100),
-                    email VARCHAR(150),
-                    phones VARCHAR(20)
-                    );
+                    email VARCHAR(150)   
+                    );                 
                     """)
 
         cur.execute("""
@@ -49,7 +48,7 @@ def add_phone(conn,id, number):
         phone_name = cur.fetchone()
         print(f"Добавлен телефон: {phone_name}")
 
-def change_client(conn,id, first_name=None, last_name=None, email=None, number=None):
+def change_client(conn,client_id, first_name=None, last_name=None, email=None, number=None):
     with conn.cursor() as cur:
         list_name = []
         paramms = []
@@ -62,15 +61,18 @@ def change_client(conn,id, first_name=None, last_name=None, email=None, number=N
         if email is not None:
             list_name.append('email = %s')
             paramms.append(email)
+        if paramms:
+            paramms.append(client_id)
+            value1 = f"UPDATE clients SET {','.join(list_name)} WHERE id = %s"
+            cur.execute(value1,paramms)
         if number is not None:
-            list_name.append('number = %s')
-            paramms.append(number)
-        paramms.append(id)
-        value1 = f"UPDATE clients SET {','.join(list_name)} WHERE id = %s"
-        cur.execute(value1,paramms)
+            cur.execute("""
+                        INSERT INTO phone(client_id,number)
+                        VALUES (%s, %s)
+                        """, (client_id,number))
         cur.execute("""
-            SELECT * FROM clients;
-        """)
+            SELECT * FROM clients WHERE id = %s;
+        """, (client_id,))
         print(cur.fetchall())
         
 
@@ -94,15 +96,15 @@ def delete_client(conn,id):
          """)
         print(cur.fetchall())
 
-def find_client(conn,first_name=None, last_name=None, email=None, number=None):
+def find_client(conn,first_name="%", last_name="%", email="%", number="%"):
     with conn.cursor() as cur:
         cur.execute("""
             SELECT * FROM clients c
             LEFT JOIN phone p ON c.id = p.id
-            WHERE (first_name = %(first_name)s OR %(first_name)s IS NULL)
-            AND (last_name = %(last_name)s OR %(last_name)s IS NULL)
-            AND (email = %(email)s OR %(email)s IS NULL)
-            OR (number = %(number)s OR %(number)s IS NULL);
+            WHERE (c.first_name  LIKE %(first_name)s OR %(first_name)s IS NULL)
+            AND (c.last_name LIKE %(last_name)s OR %(last_name)s IS NULL)
+            AND (c.email LIKE %(email)s OR %(email)s IS NULL)
+            OR (p.number LIKE %(number)s OR %(number)s IS NULL);
             """, {'first_name': first_name, 'last_name': last_name, 'email': email, 'number': number})
         return cur.fetchall()
 
@@ -112,6 +114,10 @@ if __name__=="__main__":
         add_client(conn,'Альберт','Орешек','Kedr@mail.ru')
         add_phone(conn,'1','89133453245')
         change_client(conn,'1','Аристарх','Упырев')
-        print(find_client(conn,'Аристарх'))
+        print(find_client(conn,first_name='Аристарх'))
+        
     conn.close() 
+
+
+
 
